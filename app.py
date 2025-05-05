@@ -1,9 +1,31 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
+import whisper
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
+
+# Load Whisper model (use "tiny" for faster processing)
+model = whisper.load_model("tiny")
+
+# List of scam keywords
+scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
+
+# Function to detect scam in audio
+def detect_scam_in_audio(audio_file_path):
+    # Transcribe audio
+    result = model.transcribe(audio_file_path)
+    transcript = result['text']
+
+    # Check for scam keywords
+    found = [word for word in scam_keywords if word.lower() in transcript.lower()]
+
+    if found:
+        return {"status": "scam", "keywords": found, "transcript": transcript}
+    else:
+        return {"status": "safe", "keywords": [], "transcript": transcript}
 
 @app.route('/')
 def home():
@@ -16,17 +38,16 @@ def upload_audio():
     
     audio = request.files['audio']
     
-    # Save the uploaded audio file (optional, just for debugging)
-    save_path = os.path.join("uploads", audio.filename)
+    # Save the uploaded audio file
+    save_path = os.path.join("uploads", secure_filename(audio.filename))
     os.makedirs("uploads", exist_ok=True)
     audio.save(save_path)
     
-    # Simulate detection - you'll replace this with ML model later
-    transcript = "sample fake bank account scam message"
-    if "account" in transcript.lower():
-        return jsonify({"result": "Potential scam detected", "keyword": "account"})
-    else:
-        return jsonify({"result": "Clean", "keyword": None})
+    # Perform scam detection
+    result = detect_scam_in_audio(save_path)
+    
+    # Return the result in JSON format
+    return jsonify(result)
 
 # This allows Render to bind to whatever port it assigns
 if __name__ == '__main__':
