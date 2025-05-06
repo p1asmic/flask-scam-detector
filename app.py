@@ -33,19 +33,27 @@ def home():
 
 @app.route('/upload', methods=['POST'])
 def upload_audio():
-    if 'file' not in request.files:
+    print("==> Incoming POST request to /upload")
+    print(f"Request content type: {request.content_type}")
+    print(f"Request files keys: {list(request.files.keys())}")
+
+    if 'audio' not in request.files:
+        print("!! 'audio' field missing in request.files")
         return jsonify({'error': 'No audio file part'}), 400
-    
-    audio = request.files['file']
-    
+
+    audio = request.files['audio']
+    print(f"Received file: {audio.filename}")
+
     # Save the uploaded audio file
     save_path = os.path.join("uploads", secure_filename(audio.filename))
     os.makedirs("uploads", exist_ok=True)
     audio.save(save_path)
-    
+    print(f"Saved file to: {save_path}")
+
     # Perform scam detection
     result = detect_scam_in_audio(save_path)
-    
+    print(f"Detection result: {result}")
+
     # Return the result in JSON format
     return jsonify(result)
 
