@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify 
 from flask_cors import CORS
 import os
 import whisper
@@ -7,14 +7,14 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 CORS(app)
 
-# Load Whisper model (use "tiny" for faster processing)
-model = whisper.load_model("tiny")
-
 # List of scam keywords
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
 
 # Function to detect scam in audio
 def detect_scam_in_audio(audio_file_path):
+    # Load Whisper model only when needed
+    model = whisper.load_model("tiny")
+    
     # Transcribe audio
     result = model.transcribe(audio_file_path)
     transcript = result['text']
