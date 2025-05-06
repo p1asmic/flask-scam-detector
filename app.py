@@ -33,10 +33,10 @@ def home():
 
 @app.route('/upload', methods=['POST'])
 def upload_audio():
-    if 'audio' not in request.files:
+    if 'file' not in request.files:
         return jsonify({'error': 'No audio file part'}), 400
     
-    audio = request.files['audio']
+    audio = request.files['file']
     
     # Save the uploaded audio file
     save_path = os.path.join("uploads", secure_filename(audio.filename))
