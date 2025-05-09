@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify 
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import whisper
@@ -7,19 +7,14 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 CORS(app)
 
-# List of scam keywords
+# Scam keywords list
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
 
-# Function to detect scam in audio
+# Scam detection function
 def detect_scam_in_audio(audio_file_path):
-    # Load Whisper model only when needed
-    model = whisper.load_model("tiny")
-    
-    # Transcribe audio
+    model = whisper.load_model("tiny")  # Only load model when needed
     result = model.transcribe(audio_file_path)
     transcript = result['text']
-
-    # Check for scam keywords
     found = [word for word in scam_keywords if word.lower() in transcript.lower()]
 
     if found:
@@ -34,33 +29,38 @@ def home():
 @app.route('/upload', methods=['POST'])
 def upload_audio():
     print("==> Incoming POST request to /upload")
-    print(f"Request content type: {request.content_type}")
-    print(f"Request files keys: {list(request.files.keys())}")
+    print(f"Content-Type: {request.content_type}")
+    print(f"Form Keys: {list(request.form.keys())}")
+    print(f"Files Keys: {list(request.files.keys())}")
 
-    if 'audio' not in request.files:
-        print("!! 'audio' field missing in request.files")
-        return jsonify({'error': 'No audio file part'}), 400
+    # Try to find an audio file from the uploaded files
+    audio = None
+    for key in request.files:
+        print(f"Trying file field: {key}")
+        possible_file = request.files[key]
+        if possible_file.filename:
+            audio = possible_file
+            break
 
-    audio = request.files['audio']
-    print(f"Received file: {audio.filename}")
-    
-
+    if audio is None:
+        print("!! No audio file found in request")
+        return jsonify({'error': 'No audio file found'}), 400
 
     # Save the uploaded audio file
-    save_path = os.path.join("uploads", secure_filename(audio.filename))
-    os.makedirs("uploads", exist_ok=True)
+    filename = secure_filename(audio.filename)
+    save_dir = "uploads"
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
     audio.save(save_path)
-    print(f"Saved file to: {save_path}")
-    print(f"Saved file size: {os.path.getsize(save_path)} bytes")
+    print(f"✅ Saved file to: {save_path}")
+    print(f"📦 File size: {os.path.getsize(save_path)} bytes")
 
-    # Perform scam detection
+    # Run scam detection
     result = detect_scam_in_audio(save_path)
-    print(f"Detection result: {result}")
+    print(f"🧠 Scam detection result: {result}")
 
-    # Return the result in JSON format
     return jsonify(result)
 
-# This allows Render to bind to whatever port it assigns
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))  # Render sets this
+    port = int(os.environ.get('PORT', 5000))  # Render sets this in prod
     app.run(host='0.0.0.0', port=10000)
