@@ -43,6 +43,8 @@ def upload_audio():
 
     audio = request.files['audio']
     print(f"Received file: {audio.filename}")
+    print(f"Saved file size: {os.path.getsize(save_path)} bytes")
+
 
     # Save the uploaded audio file
     save_path = os.path.join("uploads", secure_filename(audio.filename))
