@@ -43,7 +43,7 @@ def upload_audio():
 
     audio = request.files['audio']
     print(f"Received file: {audio.filename}")
-    print(f"Saved file size: {os.path.getsize(save_path)} bytes")
+    
 
 
     # Save the uploaded audio file
@@ -51,6 +51,7 @@ def upload_audio():
     os.makedirs("uploads", exist_ok=True)
     audio.save(save_path)
     print(f"Saved file to: {save_path}")
+    print(f"Saved file size: {os.path.getsize(save_path)} bytes")
 
     # Perform scam detection
     result = detect_scam_in_audio(save_path)
