@@ -7,8 +7,15 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 CORS(app)
 
+# Allowed audio extensions
+ALLOWED_EXTENSIONS = {'aac'}
+
 # Scam keywords list
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
+
+# Check if file extension is allowed
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Scam detection function
 def detect_scam_in_audio(audio_file_path):
@@ -45,6 +52,11 @@ def upload_audio():
     if audio is None:
         print("!! No audio file found in request")
         return jsonify({'error': 'No audio file found'}), 400
+
+    # Check allowed file type
+    if not allowed_file(audio.filename):
+        print("❌ File type not allowed")
+        return jsonify({'error': 'File type not allowed. Only .aac accepted.'}), 400
 
     # Save the uploaded audio file
     filename = secure_filename(audio.filename)
