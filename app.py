@@ -3,7 +3,7 @@ from flask_cors import CORS
 import os
 import whisper
 from werkzeug.utils import secure_filename
-
+model = whisper.load_model("tiny")
 app = Flask(__name__)
 CORS(app)
 
@@ -21,7 +21,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def detect_scam_in_audio(audio_file_path):
-    model = whisper.load_model("tiny")
+    
     result = model.transcribe(audio_file_path)
     transcript = result['text']
     
