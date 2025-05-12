@@ -13,25 +13,30 @@ ALLOWED_EXTENSIONS = {'aac'}
 # Scam keywords list
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
 
+# Whisper model: Load once on startup
+print("🧠 Loading Whisper model...")
+model = whisper.load_model("tiny")  # You can bump to "base" later
+print("✅ Whisper model loaded")
+
 # Check if file extension is allowed
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Scam detection function
 def detect_scam_in_audio(audio_file_path):
-    model = whisper.load_model("tiny")  # Only load model when needed
     result = model.transcribe(audio_file_path)
     transcript = result['text']
     found = [word for word in scam_keywords if word.lower() in transcript.lower()]
 
-    if found:
-        return {"status": "scam", "keywords": found, "transcript": transcript}
-    else:
-        return {"status": "safe", "keywords": [], "transcript": transcript}
+    return {
+        "status": "scam" if found else "safe",
+        "keywords": found,
+        "transcript": transcript
+    }
 
 @app.route('/')
 def home():
-    return "Scam Detection Server is live!"
+    return "Scam Detection Server is live! 🚨"
 
 @app.route('/upload', methods=['POST'])
 def upload_audio():
@@ -74,5 +79,5 @@ def upload_audio():
     return jsonify(result)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))  # Render sets this in prod
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=10000)
