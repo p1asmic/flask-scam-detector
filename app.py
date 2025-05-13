@@ -3,6 +3,10 @@ from flask_cors import CORS
 import os
 import whisper
 from werkzeug.utils import secure_filename
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+print("✅ App starting up...")
 
 app = Flask(__name__)
 CORS(app)
