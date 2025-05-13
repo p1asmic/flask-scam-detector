@@ -7,19 +7,12 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 CORS(app)
 
-# Allowed audio extensions
-ALLOWED_EXTENSIONS = {'mp3'}  # Changed from 'aac'
-
 # Scam keywords list
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
 
-# Check if file extension is allowed
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 # Scam detection function
 def detect_scam_in_audio(audio_file_path):
-    model = whisper.load_model("tiny")
+    model = whisper.load_model("tiny")  # Only load model when needed
     result = model.transcribe(audio_file_path)
     transcript = result['text']
     found = [word for word in scam_keywords if word.lower() in transcript.lower()]
@@ -40,6 +33,7 @@ def upload_audio():
     print(f"Form Keys: {list(request.form.keys())}")
     print(f"Files Keys: {list(request.files.keys())}")
 
+    # Try to find an audio file from the uploaded files
     audio = None
     for key in request.files:
         print(f"Trying file field: {key}")
@@ -52,10 +46,7 @@ def upload_audio():
         print("!! No audio file found in request")
         return jsonify({'error': 'No audio file found'}), 400
 
-    if not allowed_file(audio.filename):
-        print("❌ File type not allowed")
-        return jsonify({'error': 'File type not allowed. Only .mp3 accepted.'}), 400
-
+    # Save the uploaded audio file
     filename = secure_filename(audio.filename)
     save_dir = "uploads"
     os.makedirs(save_dir, exist_ok=True)
@@ -64,11 +55,12 @@ def upload_audio():
     print(f"✅ Saved file to: {save_path}")
     print(f"📦 File size: {os.path.getsize(save_path)} bytes")
 
+    # Run scam detection
     result = detect_scam_in_audio(save_path)
     print(f"🧠 Scam detection result: {result}")
 
     return jsonify(result)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5000))  # Render sets this in prod
     app.run(host='0.0.0.0', port=10000)
