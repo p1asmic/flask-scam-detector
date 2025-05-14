@@ -24,7 +24,8 @@ scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "paym
 
 # Whisper model: Load once on startup
 app.logger.info("🧠 Loading Whisper model...")
-model = whisper.load_model("tiny")  # You can bump to "base" later
+model = whisper.load_model("tiny", device="cpu")
+  # You can bump to "base" later
 app.logger.info("✅ Whisper model loaded")
 
 # Check if file extension is allowed
