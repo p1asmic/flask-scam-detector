@@ -5,9 +5,10 @@ import whisper
 from werkzeug.utils import secure_filename
 import logging
 
-@app.route('/')
+@app.route('/health')
 def health_check():
     return 'OK', 200
+
 
 # Set up basic logging configuration
 logging.basicConfig(level=logging.DEBUG)
