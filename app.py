@@ -13,7 +13,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Allowed audio extensions
-ALLOWED_EXTENSIONS = {'aac, mp3'}
+ALLOWED_EXTENSIONS = {'aac', 'mp3'}
 
 # Scam keywords list
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
