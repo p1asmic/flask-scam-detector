@@ -17,7 +17,7 @@ CORS(app)
 def health_check():
     return 'OK', 200
 # Allowed audio extensions
-ALLOWED_EXTENSIONS = {'aac'}
+ALLOWED_EXTENSIONS = {'aac','m4a'}
 
 # Scam keywords list
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
