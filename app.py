@@ -2,11 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import whisper
-import subprocess
 from werkzeug.utils import secure_filename
 import logging
 
-# Set up basic logging
+
+
+
+# Set up basic logging configuration
 logging.basicConfig(level=logging.DEBUG)
 app = Flask(__name__)
 CORS(app)
@@ -14,27 +16,28 @@ CORS(app)
 @app.route('/health')
 def health_check():
     return 'OK', 200
+# Allowed audio extensions
+ALLOWED_EXTENSIONS = {'aac'}
 
-# Allow .3gp files
-ALLOWED_EXTENSIONS = {'3gp'}
-
-# Scam keyword list
+# Scam keywords list
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
 
-# Load Whisper once
+# Whisper model: Load once on startup
 app.logger.info("🧠 Loading Whisper model...")
 model = whisper.load_model("tiny", device="cpu")
+  # You can bump to "base" later
 app.logger.info("✅ Whisper model loaded")
 
-# File extension check
+# Check if file extension is allowed
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Scam detection logic
-def detect_scam_in_audio(wav_file_path):
-    result = model.transcribe(wav_file_path)
+# Scam detection function
+def detect_scam_in_audio(audio_file_path):
+    result = model.transcribe(audio_file_path)
     transcript = result['text']
     found = [word for word in scam_keywords if word.lower() in transcript.lower()]
+
     return {
         "status": "scam" if found else "safe",
         "keywords": found,
@@ -52,7 +55,7 @@ def upload_audio():
     app.logger.info(f"Form Keys: {list(request.form.keys())}")
     app.logger.info(f"Files Keys: {list(request.files.keys())}")
 
-    # Get the uploaded file
+    # Try to find an audio file from the uploaded files
     audio = None
     for key in request.files:
         app.logger.info(f"Trying file field: {key}")
@@ -62,32 +65,25 @@ def upload_audio():
             break
 
     if audio is None:
-        app.logger.error("❌ No audio file found")
+        app.logger.error("!! No audio file found in request")
         return jsonify({'error': 'No audio file found'}), 400
 
+    # Check allowed file type
     if not allowed_file(audio.filename):
         app.logger.error("❌ File type not allowed")
-        return jsonify({'error': 'File type not allowed. Only .3gp accepted.'}), 400
+        return jsonify({'error': 'File type not allowed. Only .aac accepted.'}), 400
 
-    # Save original .3gp file
+    # Save the uploaded audio file
     filename = secure_filename(audio.filename)
     save_dir = "uploads"
     os.makedirs(save_dir, exist_ok=True)
-    gp_path = os.path.join(save_dir, filename)
-    audio.save(gp_path)
-    app.logger.info(f"✅ Saved .3gp to: {gp_path}")
+    save_path = os.path.join(save_dir, filename)
+    audio.save(save_path)
+    app.logger.info(f"✅ Saved file to: {save_path}")
+    app.logger.info(f"📦 File size: {os.path.getsize(save_path)} bytes")
 
-    # Convert to .wav using ffmpeg
-    wav_path = os.path.join(save_dir, "converted.wav")
-    try:
-        subprocess.run(["ffmpeg", "-y", "-i", gp_path, wav_path], check=True)
-        app.logger.info(f"🔁 Converted to .wav at: {wav_path}")
-    except subprocess.CalledProcessError as e:
-        app.logger.error(f"FFmpeg conversion failed: {e}")
-        return jsonify({'error': 'Audio conversion failed'}), 500
-
-    # Transcribe and detect scam
-    result = detect_scam_in_audio(wav_path)
+    # Run scam detection
+    result = detect_scam_in_audio(save_path)
     app.logger.info(f"🧠 Scam detection result: {result}")
 
     return jsonify(result)
