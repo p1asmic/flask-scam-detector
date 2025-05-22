@@ -16,7 +16,7 @@ def health_check():
     return 'OK', 200
 
 # Allow .3gp files
-ALLOWED_EXTENSIONS = {'3gp'}
+ALLOWED_EXTENSIONS = {'mp3'}
 
 # Scam keyword list
 scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
