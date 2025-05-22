@@ -9,6 +9,7 @@ import logging
 # Set up basic logging
 logging.basicConfig(level=logging.DEBUG)
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 CORS(app)
 
 @app.route('/health')
