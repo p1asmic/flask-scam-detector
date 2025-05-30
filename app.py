@@ -6,28 +6,37 @@ import subprocess
 from werkzeug.utils import secure_filename
 import logging
 
-# Set up basic logging
+# Set up logging
 logging.basicConfig(level=logging.DEBUG)
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20MB max
 CORS(app)
 
+# Health route
 @app.route('/health')
 def health_check():
     return 'OK', 200
 
+# Allowed audio formats
 ALLOWED_EXTENSIONS = {'mp3'}
 
-scam_keywords = ["otp", "bank", "account", "password", "card", "transfer", "payment", "login", "refund", "loan", "income tax"]
+# Scam keywords to scan for
+scam_keywords = [
+    "otp", "bank", "account", "password", "card",
+    "transfer", "payment", "login", "refund",
+    "loan", "income tax"
+]
 
-# Load Whisper once
+# Load Whisper model once
 app.logger.info("🧠 Loading Whisper model...")
 model = whisper.load_model("tiny", device="cpu")
 app.logger.info("✅ Whisper model loaded")
 
+# File extension checker
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Scam keyword matcher
 def detect_scam_in_audio(wav_file_path):
     result = model.transcribe(wav_file_path)
     transcript = result['text']
@@ -51,67 +60,72 @@ def upload_audio():
 
     audio = None
 
-    # Try regular file field
+    # 1️⃣ Try request.files first (normal upload)
     for key in request.files:
-        app.logger.info(f"Trying file field: {key}")
         possible_file = request.files[key]
         if possible_file.filename:
             audio = possible_file
             break
 
-    # Fallback #1: App Inventor-style file in form
+    # 2️⃣ Try request.form fallback
     if not audio and 'file' in request.form:
-        app.logger.warning("⚠️ File found in form, saving manually...")
-        audio_data = request.form['file']
-        filename = "fallback_audio.mp3"
-        save_dir = "uploads"
-        os.makedirs(save_dir, exist_ok=True)
-        gp_path = os.path.join(save_dir, filename)
-        with open(gp_path, 'wb') as f:
-            f.write(audio_data.encode())  # Optional: decode base64 if needed
-        app.logger.info(f"✅ Saved fallback form audio to: {gp_path}")
+        from io import BytesIO
+        from base64 import b64decode
+        try:
+            audio_data = b64decode(request.form['file'])
+            audio = BytesIO(audio_data)
+            audio.filename = "uploaded.mp3"
+        except Exception as e:
+            app.logger.error(f"❌ Failed to decode base64: {e}")
 
-    # Fallback #2: Raw data body
-    elif not audio and request.data:
-        app.logger.warning("⚠️ Using raw request.data as audio...")
-        filename = "raw_upload.mp3"
-        save_dir = "uploads"
-        os.makedirs(save_dir, exist_ok=True)
-        gp_path = os.path.join(save_dir, filename)
-        with open(gp_path, 'wb') as f:
-            f.write(request.data)
-        app.logger.info(f"✅ Saved raw audio to: {gp_path}")
+    # 3️⃣ Try raw request.data (as last resort)
+    if not audio and request.data:
+        try:
+            audio = BytesIO(request.data)
+            audio.filename = "uploaded.mp3"
+        except Exception as e:
+            app.logger.error(f"❌ Failed to process raw data: {e}")
 
-    # Regular upload flow
-    elif audio:
-        if not allowed_file(audio.filename):
-            app.logger.error("❌ File type not allowed")
-            return jsonify({'error': 'File type not allowed. Only .mp3 accepted.'}), 400
-
-        filename = secure_filename(audio.filename)
-        save_dir = "uploads"
-        os.makedirs(save_dir, exist_ok=True)
-        gp_path = os.path.join(save_dir, filename)
-        audio.save(gp_path)
-        app.logger.info(f"✅ Saved .mp3 to: {gp_path}")
-    else:
-        app.logger.error("❌ No audio file found at all")
+    if not audio:
+        app.logger.error("❌ No audio file found in any method.")
         return jsonify({'error': 'No audio file found'}), 400
 
-    # Convert to WAV
-    wav_path = os.path.join("uploads", "converted.wav")
+    # Check extension
+    if not allowed_file(audio.filename):
+        app.logger.error("❌ File type not allowed")
+        return jsonify({'error': 'File type not allowed. Only .mp3 accepted.'}), 400
+
+    # Save original audio
+    filename = secure_filename(audio.filename)
+    save_dir = "uploads"
+    os.makedirs(save_dir, exist_ok=True)
+    gp_path = os.path.join(save_dir, filename)
+
+    # If it's a stream, write it to disk
+    if hasattr(audio, 'read'):
+        with open(gp_path, 'wb') as f:
+            f.write(audio.read())
+    else:
+        audio.save(gp_path)
+
+    app.logger.info(f"✅ Saved audio to: {gp_path}")
+
+    # Convert to .wav using ffmpeg
+    wav_path = os.path.join(save_dir, "converted.wav")
     try:
         subprocess.run(["ffmpeg", "-y", "-i", gp_path, wav_path], check=True)
         app.logger.info(f"🔁 Converted to .wav at: {wav_path}")
     except subprocess.CalledProcessError as e:
-        app.logger.error(f"FFmpeg conversion failed: {e}")
+        app.logger.error(f"❌ FFmpeg conversion failed: {e}")
         return jsonify({'error': 'Audio conversion failed'}), 500
 
-    # Transcribe + Detect
+    # Scam detection
     result = detect_scam_in_audio(wav_path)
     app.logger.info(f"🧠 Scam detection result: {result}")
+
     return jsonify(result)
 
+# Run server
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
